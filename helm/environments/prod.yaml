@@ -1,0 +1,8 @@
+global:
+  environment: prod
+
+gateway:
+  tls:
+    enabled: true
+  hosts:
+    domain: ""

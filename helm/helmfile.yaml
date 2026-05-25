@@ -1,0 +1,39 @@
+repositories:
+  - name: prometheus-community
+    url: https://prometheus-community.github.io/helm-charts
+  - name: grafana
+    url: https://grafana.github.io/helm-charts
+
+environments:
+  local:
+    values:
+      - environments/local.yaml
+  dev:
+    values:
+      - environments/dev.yaml
+  prod:
+    values:
+      - environments/prod.yaml
+
+---
+
+releases:
+
+  # Prometheus: Scrapes and stores metrics from all cluster workloads
+  - name: monitoring-database
+    chart: prometheus-community/prometheus
+    namespace: observability
+    createNamespace: true
+    values:
+      - charts/monitoring-database/values.yaml
+
+  # Grafana: Visualises Prometheus metrics with dashboards and alerts
+  - name: monitoring
+    chart: grafana/grafana
+    namespace: observability
+    createNamespace: true
+    needs:
+      - observability/monitoring-database
+    values:
+      - charts/monitoring/values.yaml
+      - environments/{{ .Environment.Name }}.yaml

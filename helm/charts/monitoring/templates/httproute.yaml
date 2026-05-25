@@ -1,0 +1,23 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: grafana
+spec:
+  {{- if and (not .Values.gateway.tls.selfSigned) .Values.gateway.hosts.domain }}
+  hostnames:
+    - "{{ .Values.global.environment }}.{{ .Values.gateway.hosts.domain }}"
+  {{- end }}
+  parentRefs:
+    - name: agent
+      namespace: networking
+      {{- if and .Values.gateway.tls.enabled (not .Values.gateway.tls.selfSigned) }}
+      sectionName: https
+      {{- end }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /grafana
+      backendRefs:
+        - name: monitoring-grafana
+          port: 80

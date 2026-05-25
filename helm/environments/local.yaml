@@ -1,0 +1,14 @@
+global:
+  environment: local
+
+gateway:
+  tls:
+    enabled: true
+    selfSigned: true
+  hosts:
+    domain: ""
+
+# grafana
+"grafana.ini":
+  server:
+    domain: "localhost:31176"

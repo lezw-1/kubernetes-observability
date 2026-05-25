@@ -1,0 +1,11 @@
+global:
+  environment: dev
+
+gateway:
+  tls:
+    enabled: true
+  hosts:
+    domain: ""
+
+# grafana
+## grafana.ini.server.domain is set in the pipeline via --set

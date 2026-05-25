@@ -1,0 +1,61 @@
+# Kubernetes Observability — CI/CD Pipeline
+#
+# Triggers:
+#   - Push to prod/dev: deploy
+#   - PR to prod/dev:   no-op
+#
+# Required secrets:
+#   - CF_ORG_ID:              Cloudfleet organization ID
+#   - CF_CR_REGION:           Cloudfleet container registry region
+#   - CF_ACCESS_TOKEN:        Cloudfleet token ID
+#   - CF_ACCESS_TOKEN_SECRET: Cloudfleet token secret
+#   - CF_CLUSTER_ID:          Cloudfleet cluster ID
+#   - HOST_NAME:              Domain name of host
+#   - GRAFANA_ADMIN_USER:     Grafana admin username
+#   - GRAFANA_ADMIN_PASSWORD: Grafana admin password
+
+name: Observability pipeline
+
+on:
+  push:
+    branches: [prod, dev]
+
+env:
+  HELM_ENV: ${{ github.ref_name == 'prod' && 'prod' || 'dev' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Cloudfleet CLI
+        run: |
+          curl -fsSL https://downloads.cloudfleet.ai/apt/pubkey.gpg | sudo tee /usr/share/keyrings/cloudfleet-archive-keyring.gpg >/dev/null
+          echo "deb [signed-by=/usr/share/keyrings/cloudfleet-archive-keyring.gpg] https://downloads.cloudfleet.ai/apt stable main" | sudo tee /etc/apt/sources.list.d/cloudfleet.list
+          sudo apt-get update && sudo apt-get install -y cloudfleet
+
+      - name: Create Cluster Config
+        run: |
+          cloudfleet auth add-profile token default ${{ secrets.CF_ORG_ID }} ${{ secrets.CF_ACCESS_TOKEN }} ${{ secrets.CF_ACCESS_TOKEN_SECRET }}
+          cloudfleet clusters kubeconfig ${{ secrets.CF_CLUSTER_ID }}
+
+      - name: Deploy monitoring-database
+        uses: helmfile/helmfile-action@v2.2.0
+        with:
+          helmfile-args: >-
+            -e ${{ env.HELM_ENV }}
+            -f ./helm/helmfile.yaml apply
+            -l name=monitoring-database
+
+      - name: Deploy monitoring
+        uses: helmfile/helmfile-action@v2.2.0
+        with:
+          helmfile-args: >-
+            -e ${{ env.HELM_ENV }}
+            -f ./helm/helmfile.yaml apply
+            -l name=monitoring
+            --set adminUser=${{ secrets.GRAFANA_ADMIN_USER }}
+            --set adminPassword=${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+            --set "grafana\.ini.server.domain=${{ env.HELM_ENV }}.${{ secrets.HOST_NAME }}"
